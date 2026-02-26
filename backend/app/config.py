@@ -6,7 +6,7 @@ import os
 
 
 class Settings(BaseSettings):
-    gemini_api_key: str = ""
+    cerebras_api_key: str = ""
     database_url: str = "sqlite+aiosqlite:///./research.db"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     upload_dir: str = "./uploads"
