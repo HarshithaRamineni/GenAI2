@@ -1,0 +1,17 @@
+# Backend
+backend/__pycache__/
+backend/app/__pycache__/
+backend/app/**/__pycache__/
+backend/.env
+backend/uploads/
+backend/vector_stores/
+backend/research.db
+*.pyc
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+
+# OS
+.DS_Store
+Thumbs.db
