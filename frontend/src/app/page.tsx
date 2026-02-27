@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { uploadPaper, listPapers, searchPapers, Paper } from "@/lib/api";
+import { uploadPaper, listPapers, searchPapers, getRecentGraphs, Paper, RecentGraph } from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 
 const FEATURES = [
@@ -34,6 +34,20 @@ const FEATURES = [
         tag: "AI Chat",
     },
     {
+        icon: "�",
+        name: "AI Plagiarism Checker",
+        desc: "Cross-reference against published research to verify originality with detailed reports",
+        color: "from-red-500 to-orange-600",
+        tag: "NEW",
+    },
+    {
+        icon: "�🕸️",
+        name: "Interactive Knowledge Graph",
+        desc: "Visualize entities, methods, datasets & their relationships as a force-directed graph",
+        color: "from-purple-500 to-fuchsia-600",
+        tag: "NEW",
+    },
+    {
         icon: "🔍",
         name: "Vector-based Semantic Search",
         desc: "Search across your papers using meaning, not just keywords",
@@ -55,7 +69,14 @@ const AGENTS = [
     { icon: "🔗", name: "Related Research", desc: "Similar papers via Semantic Scholar & arXiv" },
     { icon: "🎯", name: "Gap Detector", desc: "Research gaps & improvement paths" },
     { icon: "🛠️", name: "Implementation Guide", desc: "Tech stack, architecture & roadmap" },
+    { icon: "🕸️", name: "Knowledge Graph", desc: "Entity & relationship extraction into interactive graph" },
+    { icon: "🔎", name: "Plagiarism Checker", desc: "Originality verification against published research" },
 ];
+
+const NODE_TYPE_COLORS: Record<string, string> = {
+    concept: "#818cf8", method: "#22d3ee", dataset: "#34d399",
+    metric: "#fbbf24", tool: "#f472b6", finding: "#a78bfa",
+};
 
 export default function HomePage() {
     const router = useRouter();
@@ -68,6 +89,7 @@ export default function HomePage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState<Paper[] | null>(null);
     const [searching, setSearching] = useState(false);
+    const [recentGraphs, setRecentGraphs] = useState<RecentGraph[]>([]);
 
     useEffect(() => {
         if (!authLoading && !user) router.replace("/login");
@@ -77,7 +99,12 @@ export default function HomePage() {
         try { setPapers(await listPapers()); } catch { /* */ }
     }, []);
 
-    useEffect(() => { if (user) fetchPapers(); }, [fetchPapers, user]);
+    useEffect(() => {
+        if (user) {
+            fetchPapers();
+            getRecentGraphs().then(setRecentGraphs).catch(() => { });
+        }
+    }, [fetchPapers, user]);
 
     const handleFileDrop = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
@@ -161,7 +188,7 @@ export default function HomePage() {
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-slow" />
                         AI-Powered Multi-Agent Research Platform
                     </div>
-                    <h1 className="text-3xl md:text-5xl font-black mb-6 leading-[1.1] tracking-tight">
+                    <h1 className="text-2xl md:text-4xl font-black mb-6 leading-[1.1] tracking-tight">
                         <span className="text-white">Understand Any</span>
                         <br />
                         <span className="glow-text">Research Paper</span>
@@ -169,33 +196,27 @@ export default function HomePage() {
                         <span className="text-white">in Minutes</span>
                     </h1>
                     <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed">
-                        Upload a paper and let <span className="text-indigo-300 font-semibold">5 specialized AI agents</span> extract
-                        insights, find gaps, discover related work, and generate implementation guides — all automatically.
+                        Upload a paper and let <span className="text-indigo-300 font-semibold">7 specialized AI agents</span> extract
+                        insights, find gaps, discover related work, check originality, and generate implementation guides — all automatically.
                     </p>
 
                     {/* Stats Row */}
                     <div className="flex items-center justify-center gap-8 mb-12 animate-slide-up-delay-1">
                         <div className="stat-card">
-                            <div className="stat-value glow-text">5</div>
+                            <div className="stat-value glow-text">7</div>
                             <div className="stat-label">AI Agents</div>
                         </div>
                         <div className="w-px h-10 bg-white/10" />
                         <div className="stat-card">
-                            <div className="stat-value text-emerald-400">{papers.length}</div>
-                            <div className="stat-label">Papers</div>
-                        </div>
-                        <div className="w-px h-10 bg-white/10" />
-                        <div className="stat-card">
-                            <div className="stat-value text-amber-400">RAG</div>
+                            <div className="stat-value glow-text">RAG</div>
                             <div className="stat-label">Powered</div>
                         </div>
                         <div className="w-px h-10 bg-white/10" />
                         <div className="stat-card">
-                            <div className="stat-value text-cyan-400">∞</div>
-                            <div className="stat-label">Queries</div>
+                            <div className="stat-value glow-text">∞</div>
+                            <div className="stat-label">Papers</div>
                         </div>
                     </div>
-
                 </section>
 
                 {/* ====== Upload + Search Section ====== */}
@@ -316,6 +337,38 @@ export default function HomePage() {
                     </section>
                 )}
 
+                {/* ====== Quick Access: Workspaces & History ====== */}
+                <section className="mb-12">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button
+                            onClick={() => router.push("/workspaces")}
+                            className="glass-card p-6 flex items-center gap-5 group text-left"
+                        >
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-2xl shadow-lg shadow-emerald-500/20 group-hover:scale-110 transition-transform">
+                                📁
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-white text-lg group-hover:text-emerald-300 transition-colors">Workspaces</h3>
+                                <p className="text-sm text-slate-500">Organize papers into research collections</p>
+                            </div>
+                            <span className="ml-auto text-slate-600 group-hover:text-emerald-400 transition-colors text-xl">→</span>
+                        </button>
+                        <button
+                            onClick={() => router.push("/history")}
+                            className="glass-card p-6 flex items-center gap-5 group text-left"
+                        >
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-2xl shadow-lg shadow-pink-500/20 group-hover:scale-110 transition-transform">
+                                💬
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-white text-lg group-hover:text-pink-300 transition-colors">Chat History</h3>
+                                <p className="text-sm text-slate-500">Review past research conversations</p>
+                            </div>
+                            <span className="ml-auto text-slate-600 group-hover:text-pink-400 transition-colors text-xl">→</span>
+                        </button>
+                    </div>
+                </section>
+
                 {/* ====== Key Features Grid ====== */}
                 <section className="mb-16">
                     <div className="text-center mb-10">
@@ -352,7 +405,7 @@ export default function HomePage() {
                 <section className="mb-16">
                     <div className="text-center mb-10">
                         <h2 className="text-3xl font-bold text-white mb-3">
-                            <span className="glow-text">5 Specialized Agents</span>
+                            <span className="glow-text">7 Specialized Agents</span>
                         </h2>
                         <p className="text-slate-400 text-sm">Each paper goes through a powerful multi-agent pipeline</p>
                     </div>
@@ -373,6 +426,122 @@ export default function HomePage() {
                         ))}
                     </div>
                 </section>
+
+                {/* ====== Knowledge Graph Showcase ====== */}
+                {recentGraphs.length > 0 && (
+                    <section className="mb-16 animate-fade-in">
+                        <div className="text-center mb-10">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-sm font-medium mb-4">
+                                <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse-slow" />
+                                NEW FEATURE
+                            </div>
+                            <h2 className="text-3xl font-bold text-white mb-3">
+                                <span className="glow-text">Knowledge Graphs</span>
+                            </h2>
+                            <p className="text-slate-400 text-sm max-w-lg mx-auto">
+                                Every analyzed paper gets an interactive knowledge graph — entities, methods, datasets, and their relationships visualized in real-time
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {recentGraphs.map((graph) => {
+                                const typeCounts: Record<string, number> = {};
+                                graph.nodes.forEach((n) => {
+                                    typeCounts[n.type] = (typeCounts[n.type] || 0) + 1;
+                                });
+                                return (
+                                    <button
+                                        key={graph.paper_id}
+                                        onClick={() => router.push(`/paper/${graph.paper_id}`)}
+                                        className="glass-card p-0 overflow-hidden text-left group"
+                                    >
+                                        {/* Mini Graph Canvas */}
+                                        <div className="relative h-40 bg-gradient-to-b from-purple-500/5 to-transparent overflow-hidden">
+                                            <svg
+                                                viewBox="0 0 400 160"
+                                                className="w-full h-full"
+                                                preserveAspectRatio="xMidYMid meet"
+                                            >
+                                                {/* Edges */}
+                                                {graph.edges.slice(0, 30).map((edge, i) => {
+                                                    const srcIdx = graph.nodes.findIndex((n) => n.id === edge.source);
+                                                    const tgtIdx = graph.nodes.findIndex((n) => n.id === edge.target);
+                                                    if (srcIdx < 0 || tgtIdx < 0) return null;
+                                                    const sx = 40 + ((srcIdx * 137 + 50) % 320);
+                                                    const sy = 20 + ((srcIdx * 89 + 30) % 120);
+                                                    const tx = 40 + ((tgtIdx * 137 + 50) % 320);
+                                                    const ty = 20 + ((tgtIdx * 89 + 30) % 120);
+                                                    return (
+                                                        <line
+                                                            key={`e${i}`}
+                                                            x1={sx} y1={sy} x2={tx} y2={ty}
+                                                            stroke="rgba(129,140,248,0.12)"
+                                                            strokeWidth={0.5}
+                                                        />
+                                                    );
+                                                })}
+                                                {/* Nodes */}
+                                                {graph.nodes.slice(0, 25).map((node, i) => {
+                                                    const cx = 40 + ((i * 137 + 50) % 320);
+                                                    const cy = 20 + ((i * 89 + 30) % 120);
+                                                    const r = 2 + (node.importance || 5) * 0.5;
+                                                    const color = NODE_TYPE_COLORS[node.type] || "#818cf8";
+                                                    return (
+                                                        <g key={node.id}>
+                                                            <circle cx={cx} cy={cy} r={r + 3} fill={color} opacity={0.15} />
+                                                            <circle cx={cx} cy={cy} r={r} fill={color} opacity={0.8}>
+                                                                <animate
+                                                                    attributeName="opacity"
+                                                                    values="0.6;1;0.6"
+                                                                    dur={`${2 + (i % 3)}s`}
+                                                                    repeatCount="indefinite"
+                                                                />
+                                                            </circle>
+                                                        </g>
+                                                    );
+                                                })}
+                                            </svg>
+                                            {/* Gradient overlay */}
+                                            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#0d1220] to-transparent" />
+                                        </div>
+
+                                        {/* Info */}
+                                        <div className="p-4 pt-2">
+                                            <h3 className="font-semibold text-white text-sm truncate group-hover:text-indigo-300 transition-colors">
+                                                {graph.paper_title}
+                                            </h3>
+                                            <div className="flex items-center gap-3 mt-2">
+                                                <span className="text-[10px] text-slate-500">
+                                                    {graph.nodes.length} entities
+                                                </span>
+                                                <span className="text-[10px] text-slate-600">·</span>
+                                                <span className="text-[10px] text-slate-500">
+                                                    {graph.edges.length} relationships
+                                                </span>
+                                            </div>
+                                            {/* Type pills */}
+                                            <div className="flex flex-wrap gap-1 mt-2">
+                                                {Object.entries(typeCounts).slice(0, 5).map(([type, count]) => (
+                                                    <span
+                                                        key={type}
+                                                        className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full border border-white/5"
+                                                        style={{ color: NODE_TYPE_COLORS[type] || "#94a3b8" }}
+                                                    >
+                                                        <span
+                                                            className="w-1.5 h-1.5 rounded-full"
+                                                            style={{ backgroundColor: NODE_TYPE_COLORS[type] || "#94a3b8" }}
+                                                        />
+                                                        {count} {type}{count > 1 ? "s" : ""}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </section>
+                )}
 
                 {/* ====== Recent Papers ====== */}
                 {papers.length > 0 && (

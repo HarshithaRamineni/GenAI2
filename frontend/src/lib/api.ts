@@ -48,6 +48,24 @@ export interface ConversationSummary {
     last_activity: string;
 }
 
+export interface KnowledgeGraphData {
+    nodes: Array<{
+        id: string;
+        label: string;
+        type: string;
+        importance: number;
+        description?: string;
+    }>;
+    edges: Array<{
+        source: string;
+        target: string;
+        label: string;
+        strength: number;
+    }>;
+    clusters?: Array<{ name: string; node_ids: string[] }>;
+    summary?: string;
+}
+
 /* ---------- Papers ---------- */
 export async function uploadPaper(file?: File, url?: string): Promise<Paper> {
     const formData = new FormData();
@@ -200,4 +218,69 @@ export async function removePaperFromWorkspace(
         { method: "DELETE" }
     );
     if (!res.ok) throw new Error("Failed to remove paper");
+}
+
+/* ---------- Knowledge Graph ---------- */
+export async function getKnowledgeGraph(
+    paperId: string
+): Promise<KnowledgeGraphData> {
+    const res = await fetch(
+        `${API_BASE}/api/papers/${paperId}/knowledge-graph`,
+        { cache: "no-store" }
+    );
+    if (!res.ok) throw new Error("Knowledge graph not available");
+    return res.json();
+}
+
+export interface RecentGraph {
+    paper_id: string;
+    paper_title: string;
+    nodes: Array<{ id: string; label: string; type: string; importance: number }>;
+    edges: Array<{ source: string; target: string; label: string; strength: number }>;
+    summary: string;
+    finished_at: string | null;
+}
+
+export async function getRecentGraphs(): Promise<RecentGraph[]> {
+    const res = await fetch(`${API_BASE}/api/papers/recent-graphs`, {
+        cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json();
+}
+
+export interface PlagiarismReportData {
+    overall_originality_score: number;
+    verdict: string;
+    verdict_label: string;
+    flagged_sections: Array<{
+        claim_id: string;
+        claim_text: string;
+        severity: string;
+        overlap_percentage: number;
+        explanation: string;
+        similar_source_title?: string;
+        similar_source_url?: string;
+    }>;
+    matched_sources: Array<{
+        title: string;
+        authors?: string;
+        year?: number;
+        url?: string;
+        similarity_score: number;
+        overlap_description: string;
+    }>;
+    original_contributions?: string[];
+    summary: string;
+}
+
+export async function getPlagiarismReport(
+    paperId: string
+): Promise<PlagiarismReportData> {
+    const res = await fetch(
+        `${API_BASE}/api/papers/${paperId}/plagiarism-report`,
+        { cache: "no-store" }
+    );
+    if (!res.ok) throw new Error("Plagiarism report not available");
+    return res.json();
 }

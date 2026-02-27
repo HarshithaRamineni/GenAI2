@@ -17,6 +17,37 @@ from app.config import get_settings
 router = APIRouter(prefix="/api/papers", tags=["papers"])
 
 
+@router.get("/recent-graphs")
+async def recent_knowledge_graphs(db: AsyncSession = Depends(get_db)):
+    """Get the most recent knowledge graphs across all analyzed papers."""
+    stmt = (
+        select(Analysis, Paper.title)
+        .join(Paper, Analysis.paper_id == Paper.id)
+        .where(Analysis.agent_name == "knowledge_graph", Analysis.status == "completed")
+        .order_by(Analysis.finished_at.desc())
+        .limit(4)
+    )
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    graphs = []
+    for analysis, paper_title in rows:
+        try:
+            data = json.loads(analysis.result)
+            graphs.append({
+                "paper_id": analysis.paper_id,
+                "paper_title": paper_title,
+                "nodes": data.get("nodes", []),
+                "edges": data.get("edges", []),
+                "summary": data.get("summary", ""),
+                "finished_at": analysis.finished_at.isoformat() if analysis.finished_at else None,
+            })
+        except (json.JSONDecodeError, AttributeError):
+            continue
+
+    return graphs
+
+
 @router.post("/upload")
 async def upload_paper(
     file: UploadFile | None = File(None),
@@ -183,6 +214,48 @@ async def get_paper(paper_id: str, db: AsyncSession = Depends(get_db)):
         "text_length": len(paper.raw_text) if paper.raw_text else 0,
         "analyses": analysis_map,
     }
+
+
+@router.get("/{paper_id}/knowledge-graph")
+async def get_knowledge_graph(paper_id: str, db: AsyncSession = Depends(get_db)):
+    """Get knowledge graph data for a paper."""
+    stmt = (
+        select(Analysis)
+        .where(Analysis.paper_id == paper_id, Analysis.agent_name == "knowledge_graph")
+        .order_by(Analysis.created_at.desc())
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    analysis = result.scalar_one_or_none()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Knowledge graph not found. Run analysis first.")
+    if analysis.status != "completed":
+        raise HTTPException(status_code=400, detail=f"Knowledge graph analysis status: {analysis.status}")
+    try:
+        return json.loads(analysis.result)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Failed to parse knowledge graph data")
+
+
+@router.get("/{paper_id}/plagiarism-report")
+async def get_plagiarism_report(paper_id: str, db: AsyncSession = Depends(get_db)):
+    """Get plagiarism/originality report for a paper."""
+    stmt = (
+        select(Analysis)
+        .where(Analysis.paper_id == paper_id, Analysis.agent_name == "plagiarism_checker")
+        .order_by(Analysis.created_at.desc())
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    analysis = result.scalar_one_or_none()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Plagiarism report not found. Run analysis first.")
+    if analysis.status != "completed":
+        raise HTTPException(status_code=400, detail=f"Plagiarism check status: {analysis.status}")
+    try:
+        return json.loads(analysis.result)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Failed to parse plagiarism report")
 
 
 @router.get("/{paper_id}/analyze")

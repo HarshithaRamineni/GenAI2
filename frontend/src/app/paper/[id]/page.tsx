@@ -1,7 +1,11 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getPaper, analyzeSSE, Paper, AgentProgress } from "@/lib/api";
+import { getPaper, analyzeSSE, getKnowledgeGraph, getPlagiarismReport, Paper, AgentProgress, KnowledgeGraphData, PlagiarismReportData } from "@/lib/api";
+import dynamic from "next/dynamic";
+
+const KnowledgeGraph = dynamic(() => import("@/components/KnowledgeGraph"), { ssr: false });
+const PlagiarismReport = dynamic(() => import("@/components/PlagiarismReport"), { ssr: false });
 
 const AGENT_META: Record<string, { icon: string; label: string }> = {
     rag_indexer: { icon: "📦", label: "RAG Indexer" },
@@ -10,6 +14,8 @@ const AGENT_META: Record<string, { icon: string; label: string }> = {
     related_research: { icon: "🔗", label: "Related Research" },
     gap_detector: { icon: "🎯", label: "Gap Detector" },
     implementation_guide: { icon: "🛠️", label: "Implementation Guide" },
+    knowledge_graph: { icon: "🕸️", label: "Knowledge Graph" },
+    plagiarism_checker: { icon: "🔎", label: "Plagiarism Check" },
     pipeline: { icon: "✅", label: "Pipeline" },
 };
 
@@ -19,6 +25,8 @@ const TABS = [
     { key: "related_research", label: "Related Work", icon: "🔗" },
     { key: "gap_detector", label: "Gaps", icon: "🎯" },
     { key: "implementation_guide", label: "Implementation", icon: "🛠️" },
+    { key: "knowledge_graph", label: "Knowledge Graph", icon: "🕸️" },
+    { key: "plagiarism_checker", label: "Plagiarism", icon: "🔎" },
 ];
 
 export default function PaperPage() {
@@ -31,6 +39,10 @@ export default function PaperPage() {
     const [agentStatus, setAgentStatus] = useState<Record<string, AgentProgress>>({});
     const [analyzing, setAnalyzing] = useState(false);
     const [analysisComplete, setAnalysisComplete] = useState(false);
+    const [graphData, setGraphData] = useState<KnowledgeGraphData | null>(null);
+    const [graphLoading, setGraphLoading] = useState(false);
+    const [plagiarismData, setPlagiarismData] = useState<PlagiarismReportData | null>(null);
+    const [plagiarismLoading, setPlagiarismLoading] = useState(false);
 
     const fetchPaper = useCallback(async () => {
         try {
@@ -54,6 +66,28 @@ export default function PaperPage() {
             (err) => { setAnalyzing(false); console.error(err); }
         );
     };
+
+    // Fetch knowledge graph data when tab is active
+    useEffect(() => {
+        if (activeTab === "knowledge_graph" && analysisComplete && !graphData && !graphLoading) {
+            setGraphLoading(true);
+            getKnowledgeGraph(paperId)
+                .then(setGraphData)
+                .catch(() => setGraphData(null))
+                .finally(() => setGraphLoading(false));
+        }
+    }, [activeTab, analysisComplete, paperId, graphData, graphLoading]);
+
+    // Fetch plagiarism report when tab is active
+    useEffect(() => {
+        if (activeTab === "plagiarism_checker" && analysisComplete && !plagiarismData && !plagiarismLoading) {
+            setPlagiarismLoading(true);
+            getPlagiarismReport(paperId)
+                .then(setPlagiarismData)
+                .catch(() => setPlagiarismData(null))
+                .finally(() => setPlagiarismLoading(false));
+        }
+    }, [activeTab, analysisComplete, paperId, plagiarismData, plagiarismLoading]);
 
     const activeResult = paper?.analyses?.[activeTab]?.result;
 
@@ -176,7 +210,7 @@ export default function PaperPage() {
                                 </div>
                             )}
 
-                            {activeResult && <ResultView agentName={activeTab} result={activeResult as Record<string, unknown>} />}
+                            {activeResult && <ResultView agentName={activeTab} result={activeResult as Record<string, unknown>} graphData={graphData} graphLoading={graphLoading} plagiarismData={plagiarismData} plagiarismLoading={plagiarismLoading} />}
 
                             {!activeResult && analysisComplete && (() => {
                                 const tabAnalysis = paper?.analyses?.[activeTab];
@@ -219,12 +253,14 @@ export default function PaperPage() {
 }
 
 /* ==== Result Views ==== */
-function ResultView({ agentName, result }: { agentName: string; result: Record<string, unknown> }) {
+function ResultView({ agentName, result, graphData, graphLoading, plagiarismData, plagiarismLoading }: { agentName: string; result: Record<string, unknown>; graphData?: KnowledgeGraphData | null; graphLoading?: boolean; plagiarismData?: PlagiarismReportData | null; plagiarismLoading?: boolean }) {
     if (agentName === "structured_extractor") return <ExtractionView data={result} />;
     if (agentName === "simplifier") return <SimplifierView data={result} />;
     if (agentName === "related_research") return <RelatedResearchView data={result} />;
     if (agentName === "gap_detector") return <GapDetectorView data={result} />;
     if (agentName === "implementation_guide") return <ImplementationView data={result} />;
+    if (agentName === "knowledge_graph") return <KnowledgeGraphView data={result} graphData={graphData} graphLoading={graphLoading} />;
+    if (agentName === "plagiarism_checker") return <PlagiarismCheckView data={result} plagiarismData={plagiarismData} plagiarismLoading={plagiarismLoading} />;
     return <GenericView data={result} />;
 }
 
@@ -240,9 +276,9 @@ function ExtractionView({ data }: { data: Record<string, unknown> }) {
     ];
     return (
         <div className="space-y-4">
-            {data.title && (
+            {typeof data.title === "string" && (
                 <div className="glass-card-static p-5">
-                    <h3 className="text-lg font-bold text-white">{data.title as string}</h3>
+                    <h3 className="text-lg font-bold text-white">{data.title}</h3>
                     {Array.isArray(data.authors) && <p className="text-sm text-slate-400 mt-1">{(data.authors as string[]).join(", ")}</p>}
                 </div>
             )}
@@ -265,9 +301,9 @@ function SimplifierView({ data }: { data: Record<string, unknown> }) {
     const levelData = data[level] as Record<string, unknown> | undefined;
     return (
         <div className="space-y-4">
-            {data.one_liner && (
+            {typeof data.one_liner === "string" && (
                 <div className="glass-card-accent p-5">
-                    <p className="text-cyan-300 font-medium italic">&quot;{data.one_liner as string}&quot;</p>
+                    <p className="text-cyan-300 font-medium italic">&quot;{data.one_liner}&quot;</p>
                 </div>
             )}
             <div className="flex gap-2">
@@ -294,25 +330,25 @@ function RelatedResearchView({ data }: { data: Record<string, unknown> }) {
     const papers = (data.related_papers || []) as Array<Record<string, unknown>>;
     return (
         <div className="space-y-4">
-            {data.research_landscape && (
+            {typeof data.research_landscape === "string" && (
                 <div className="glass-card-static p-5">
                     <h3 className="text-sm font-semibold text-indigo-300 mb-2">🌐 Research Landscape</h3>
-                    <p className="text-sm text-slate-400">{data.research_landscape as string}</p>
+                    <p className="text-sm text-slate-400">{data.research_landscape}</p>
                 </div>
             )}
-            {data.comparison_summary && (
+            {typeof data.comparison_summary === "string" && (
                 <div className="glass-card-static p-5">
                     <h3 className="text-sm font-semibold text-indigo-300 mb-2">📊 Comparison</h3>
-                    <p className="text-sm text-slate-400">{data.comparison_summary as string}</p>
+                    <p className="text-sm text-slate-400">{data.comparison_summary}</p>
                 </div>
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {papers.slice(0, 10).map((p, i) => (
                     <div key={i} className="glass-card p-5">
-                        <h4 className="text-sm font-semibold text-white mb-1 line-clamp-2">{p.title as string}</h4>
-                        {p.year && <span className="text-xs text-slate-500">{p.year as number}</span>}
-                        {p.relevance && <p className="text-xs text-slate-400 mt-2">{p.relevance as string}</p>}
-                        {p.url && <a href={p.url as string} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline mt-2 inline-block">View Paper →</a>}
+                        <h4 className="text-sm font-semibold text-white mb-1 line-clamp-2">{String(p.title || "")}</h4>
+                        {(typeof p.year === "number" || typeof p.year === "string") && <span className="text-xs text-slate-500">{String(p.year)}</span>}
+                        {typeof p.relevance === "string" && <p className="text-xs text-slate-400 mt-2">{p.relevance}</p>}
+                        {typeof p.url === "string" && <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline mt-2 inline-block">View Paper →</a>}
                     </div>
                 ))}
             </div>
@@ -330,14 +366,14 @@ function GapDetectorView({ data }: { data: Record<string, unknown> }) {
                 <div className="glass-card-static p-6">
                     <div className="flex items-center gap-6">
                         <div className="text-center">
-                            <div className="text-4xl font-bold glow-text">{novelty.score as number}/10</div>
+                            <div className="text-4xl font-bold glow-text">{Number(novelty.score) || 0}/10</div>
                             <p className="text-xs text-slate-500 mt-1">Novelty Score</p>
                         </div>
                         <div className="flex-1">
                             <div className="w-full bg-white/5 rounded-full h-3 mb-2">
-                                <div className="h-3 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 transition-all" style={{ width: `${((novelty.score as number) || 0) * 10}%` }} />
+                                <div className="h-3 rounded-full bg-gradient-to-r from-indigo-500 to-cyan-500 transition-all" style={{ width: `${(Number(novelty.score) || 0) * 10}%` }} />
                             </div>
-                            <p className="text-sm text-slate-400">{novelty.justification as string}</p>
+                            <p className="text-sm text-slate-400">{String(novelty.justification || "")}</p>
                         </div>
                     </div>
                 </div>
@@ -350,11 +386,11 @@ function GapDetectorView({ data }: { data: Record<string, unknown> }) {
                             <div key={i} className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
                                 <div className="flex items-center gap-2 mb-1">
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${g.severity === "high" ? "bg-red-500/15 text-red-400" : g.severity === "medium" ? "bg-yellow-500/15 text-yellow-400" : "bg-green-500/15 text-green-400"}`}>
-                                        {(g.severity as string)?.toUpperCase()}
+                                        {String(g.severity || "").toUpperCase()}
                                     </span>
-                                    <span className="text-xs text-slate-500 capitalize">{g.category as string}</span>
+                                    <span className="text-xs text-slate-500 capitalize">{String(g.category || "")}</span>
                                 </div>
-                                <p className="text-sm text-slate-300">{g.gap as string}</p>
+                                <p className="text-sm text-slate-300">{String(g.gap || "")}</p>
                             </div>
                         ))}
                     </div>
@@ -365,16 +401,16 @@ function GapDetectorView({ data }: { data: Record<string, unknown> }) {
                     <h3 className="text-sm font-semibold text-emerald-400 mb-3">💡 Improvement Suggestions</h3>
                     <div className="space-y-2">{improvements.map((s, i) => (
                         <div key={i} className="p-3 rounded-lg bg-white/[0.03] border border-white/5">
-                            <p className="text-sm text-white font-medium">{s.suggestion as string}</p>
-                            <p className="text-xs text-slate-500 mt-1">{s.expected_impact as string}</p>
+                            <p className="text-sm text-white font-medium">{String(s.suggestion || "")}</p>
+                            <p className="text-xs text-slate-500 mt-1">{String(s.expected_impact || "")}</p>
                         </div>
                     ))}</div>
                 </div>
             )}
-            {data.overall_gap_summary && (
+            {typeof data.overall_gap_summary === "string" && (
                 <div className="glass-card-static p-5">
                     <h3 className="text-sm font-semibold text-indigo-300 mb-2">📝 Summary</h3>
-                    <p className="text-sm text-slate-400 whitespace-pre-line">{data.overall_gap_summary as string}</p>
+                    <p className="text-sm text-slate-400 whitespace-pre-line">{data.overall_gap_summary}</p>
                 </div>
             )}
         </div>
@@ -410,10 +446,10 @@ function ImplementationView({ data }: { data: Record<string, unknown> }) {
                     ))}
                 </div>
             )}
-            {data.code_skeleton && (
+            {typeof data.code_skeleton === "string" && (
                 <div className="glass-card-static p-5">
                     <h3 className="text-sm font-semibold text-indigo-300 mb-3">💻 Code Skeleton</h3>
-                    <pre className="text-xs text-slate-300 bg-black/30 p-4 rounded-lg overflow-x-auto whitespace-pre-wrap border border-white/5">{data.code_skeleton as string}</pre>
+                    <pre className="text-xs text-slate-300 bg-black/30 p-4 rounded-lg overflow-x-auto whitespace-pre-wrap border border-white/5">{data.code_skeleton}</pre>
                 </div>
             )}
             {Array.isArray(data.key_challenges) && (
@@ -428,10 +464,64 @@ function ImplementationView({ data }: { data: Record<string, unknown> }) {
     );
 }
 
+function KnowledgeGraphView({ data, graphData, graphLoading }: { data: Record<string, unknown>; graphData?: KnowledgeGraphData | null; graphLoading?: boolean }) {
+    // Use graph data from dedicated endpoint, or fall back to analysis result
+    const effectiveData: KnowledgeGraphData | null = graphData || (data?.nodes ? data as unknown as KnowledgeGraphData : null);
+
+    if (graphLoading) {
+        return (
+            <div className="glass-card-static p-12 text-center">
+                <div className="text-4xl mb-4 animate-pulse-slow">🕸️</div>
+                <p className="text-lg text-white mb-2">Loading Knowledge Graph...</p>
+                <p className="text-sm text-slate-500">Fetching entity and relationship data</p>
+            </div>
+        );
+    }
+
+    if (!effectiveData || !effectiveData.nodes?.length) {
+        return (
+            <div className="glass-card-static p-12 text-center">
+                <p className="text-4xl mb-4">🕸️</p>
+                <p className="text-lg text-white mb-2">Knowledge Graph</p>
+                <p className="text-sm text-slate-500">Graph data is not available. Try re-analyzing the paper.</p>
+            </div>
+        );
+    }
+
+    return <KnowledgeGraph data={effectiveData} />;
+}
+
+function PlagiarismCheckView({ data, plagiarismData, plagiarismLoading }: { data: Record<string, unknown>; plagiarismData?: PlagiarismReportData | null; plagiarismLoading?: boolean }) {
+    const effectiveData = plagiarismData || (data?.overall_originality_score !== undefined ? data as unknown as PlagiarismReportData : null);
+
+    if (plagiarismLoading) {
+        return (
+            <div className="glass-card-static p-12 text-center">
+                <div className="text-4xl mb-4 animate-pulse-slow">🔎</div>
+                <p className="text-lg text-white mb-2">Running Plagiarism Check...</p>
+                <p className="text-sm text-slate-500">Comparing against published research</p>
+            </div>
+        );
+    }
+
+    if (!effectiveData) {
+        return (
+            <div className="glass-card-static p-12 text-center">
+                <p className="text-4xl mb-4">🔎</p>
+                <p className="text-lg text-white mb-2">Plagiarism Check</p>
+                <p className="text-sm text-slate-500">Report not available. Try re-analyzing the paper.</p>
+            </div>
+        );
+    }
+
+    return <PlagiarismReport data={effectiveData as any} />;
+}
+
 function RenderValue({ value }: { value: unknown }) {
     if (value === null || value === undefined) return null;
     if (typeof value === "string") return <p className="text-sm text-slate-300">{value}</p>;
     if (typeof value === "number") return <span className="text-sm text-white font-mono">{value}</span>;
+    if (typeof value === "boolean") return <span className="text-sm text-white font-mono">{String(value)}</span>;
     if (Array.isArray(value)) return (
         <ul className="space-y-1">{value.map((item, i) => (
             <li key={i} className="flex items-start gap-2 text-sm text-slate-300">

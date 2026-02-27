@@ -10,6 +10,8 @@ from app.agents.simplifier_agent import SimplifierAgent
 from app.agents.related_research_agent import RelatedResearchAgent
 from app.agents.gap_detector_agent import GapDetectorAgent
 from app.agents.implementation_guide_agent import ImplementationGuideAgent
+from app.agents.knowledge_graph_agent import KnowledgeGraphAgent
+from app.agents.plagiarism_checker_agent import PlagiarismCheckerAgent
 from app.rag.retriever import build_paper_index
 from app.models import Paper, PaperStatus
 from app.database import async_session
@@ -22,12 +24,14 @@ AGENTS = {
     "related_research": RelatedResearchAgent(),
     "gap_detector": GapDetectorAgent(),
     "implementation_guide": ImplementationGuideAgent(),
+    "knowledge_graph": KnowledgeGraphAgent(),
+    "plagiarism_checker": PlagiarismCheckerAgent(),
 }
 
 # Execution pipeline: (stage_name, [agents], [dependencies])
 PIPELINE = [
     ("extraction", ["structured_extractor"], []),
-    ("parallel_analysis", ["simplifier", "related_research", "implementation_guide"], ["structured_extractor"]),
+    ("parallel_analysis", ["simplifier", "related_research", "implementation_guide", "knowledge_graph", "plagiarism_checker"], ["structured_extractor"]),
     ("gap_analysis", ["gap_detector"], ["structured_extractor", "related_research"]),
 ]
 
