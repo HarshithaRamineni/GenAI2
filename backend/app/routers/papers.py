@@ -98,6 +98,49 @@ async def list_papers(db: AsyncSession = Depends(get_db)):
     ]
 
 
+@router.get("/search")
+async def search_papers(q: str = "", db: AsyncSession = Depends(get_db)):
+    """Search papers by title (case-insensitive substring match)."""
+    if not q.strip():
+        return []
+
+    query = q.strip().lower()
+    stmt = select(Paper).order_by(Paper.upload_date.desc())
+    result = await db.execute(stmt)
+    papers = result.scalars().all()
+
+    matches = []
+    for p in papers:
+        title_lower = (p.title or "").lower()
+        text_lower = (p.raw_text or "")[:2000].lower()
+
+        # Score: title match is stronger
+        score = 0
+        if query in title_lower:
+            score += 10
+        # Check if query words appear in first 2000 chars of text
+        query_words = query.split()
+        word_hits = sum(1 for w in query_words if w in text_lower)
+        score += word_hits
+
+        if score > 0:
+            matches.append((score, p))
+
+    # Sort by score descending
+    matches.sort(key=lambda x: x[0], reverse=True)
+
+    return [
+        {
+            "id": p.id,
+            "title": p.title,
+            "source_type": p.source_type,
+            "status": p.status,
+            "upload_date": p.upload_date.isoformat() if p.upload_date else None,
+        }
+        for _, p in matches[:20]
+    ]
+
+
 @router.get("/{paper_id}")
 async def get_paper(paper_id: str, db: AsyncSession = Depends(get_db)):
     """Get paper details with all analysis results."""

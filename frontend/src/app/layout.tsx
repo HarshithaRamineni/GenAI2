@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/lib/AuthContext";
+import GlobalBackground from "@/components/GlobalBackground";
 
 export const metadata: Metadata = {
     title: "ResearchPilot – AI Research Intelligence Hub",
@@ -22,13 +24,17 @@ export default function RootLayout({
                     crossOrigin="anonymous"
                 />
                 <link
-                    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+                    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
                     rel="stylesheet"
                 />
             </head>
             <body className="antialiased">
+                <div className="mesh-bg" />
                 <div className="particles-bg" />
-                <div className="relative z-10">{children}</div>
+                <GlobalBackground />
+                <div className="relative" style={{ zIndex: 2 }}>
+                    <AuthProvider>{children}</AuthProvider>
+                </div>
             </body>
         </html>
     );

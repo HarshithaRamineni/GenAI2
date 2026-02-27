@@ -77,3 +77,26 @@ class ChatMessage(Base):
     )
 
     paper: Mapped["Paper"] = relationship(back_populates="chat_messages")
+
+
+class Workspace(Base):
+    __tablename__ = "workspaces"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    name: Mapped[str] = mapped_column(String(255), default="Untitled Workspace")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc)
+    )
+
+    papers: Mapped[list["WorkspacePaper"]] = relationship(back_populates="workspace", cascade="all, delete-orphan")
+
+
+class WorkspacePaper(Base):
+    __tablename__ = "workspace_papers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    workspace_id: Mapped[str] = mapped_column(ForeignKey("workspaces.id"))
+    paper_id: Mapped[str] = mapped_column(ForeignKey("papers.id"))
+
+    workspace: Mapped["Workspace"] = relationship(back_populates="papers")
+    paper: Mapped["Paper"] = relationship()

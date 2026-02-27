@@ -16,7 +16,7 @@ async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit
 async def init_db():
     """Create all tables."""
     async with engine.begin() as conn:
-        from app.models import Paper, Analysis, ChatMessage  # noqa: F401
+        from app.models import Paper, Analysis, ChatMessage, Workspace, WorkspacePaper  # noqa: F401
         await conn.run_sync(Base.metadata.create_all)
 
 

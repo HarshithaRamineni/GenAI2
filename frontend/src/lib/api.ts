@@ -33,6 +33,21 @@ export interface ChatMessage {
     created_at: string;
 }
 
+export interface Workspace {
+    id: string;
+    name: string;
+    paper_ids: string[];
+    created_at: string;
+}
+
+export interface ConversationSummary {
+    paper_id: string;
+    paper_title: string;
+    message_count: number;
+    last_message: string;
+    last_activity: string;
+}
+
 /* ---------- Papers ---------- */
 export async function uploadPaper(file?: File, url?: string): Promise<Paper> {
     const formData = new FormData();
@@ -58,6 +73,15 @@ export async function getPaper(id: string): Promise<Paper> {
         cache: "no-store",
     });
     if (!res.ok) throw new Error("Failed to fetch paper");
+    return res.json();
+}
+
+export async function searchPapers(query: string): Promise<Paper[]> {
+    const res = await fetch(
+        `${API_BASE}/api/papers/search?q=${encodeURIComponent(query)}`,
+        { cache: "no-store" }
+    );
+    if (!res.ok) throw new Error("Search failed");
     return res.json();
 }
 
@@ -117,4 +141,63 @@ export async function getChatHistory(
     });
     if (!res.ok) throw new Error("Failed to fetch chat history");
     return res.json();
+}
+
+/* ---------- Conversation History ---------- */
+export async function getConversationHistory(): Promise<ConversationSummary[]> {
+    const res = await fetch(`${API_BASE}/api/conversations`, {
+        cache: "no-store",
+    });
+    if (!res.ok) throw new Error("Failed to fetch conversation history");
+    return res.json();
+}
+
+/* ---------- Workspaces ---------- */
+export async function listWorkspaces(): Promise<Workspace[]> {
+    const res = await fetch(`${API_BASE}/api/workspaces`, { cache: "no-store" });
+    if (!res.ok) throw new Error("Failed to fetch workspaces");
+    return res.json();
+}
+
+export async function createWorkspace(name: string): Promise<Workspace> {
+    const res = await fetch(`${API_BASE}/api/workspaces`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error("Failed to create workspace");
+    return res.json();
+}
+
+export async function deleteWorkspace(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/workspaces/${id}`, {
+        method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to delete workspace");
+}
+
+export async function addPaperToWorkspace(
+    workspaceId: string,
+    paperId: string
+): Promise<void> {
+    const res = await fetch(
+        `${API_BASE}/api/workspaces/${workspaceId}/papers`,
+        {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ paper_id: paperId }),
+        }
+    );
+    if (!res.ok) throw new Error("Failed to add paper");
+}
+
+export async function removePaperFromWorkspace(
+    workspaceId: string,
+    paperId: string
+): Promise<void> {
+    const res = await fetch(
+        `${API_BASE}/api/workspaces/${workspaceId}/papers/${paperId}`,
+        { method: "DELETE" }
+    );
+    if (!res.ok) throw new Error("Failed to remove paper");
 }
