@@ -258,6 +258,27 @@ async def get_plagiarism_report(paper_id: str, db: AsyncSession = Depends(get_db
         raise HTTPException(status_code=500, detail="Failed to parse plagiarism report")
 
 
+@router.get("/{paper_id}/peer-review")
+async def get_peer_review(paper_id: str, db: AsyncSession = Depends(get_db)):
+    """Get AI peer review simulation for a paper."""
+    stmt = (
+        select(Analysis)
+        .where(Analysis.paper_id == paper_id, Analysis.agent_name == "peer_review")
+        .order_by(Analysis.created_at.desc())
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    analysis = result.scalar_one_or_none()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Peer review not found. Run analysis first.")
+    if analysis.status != "completed":
+        raise HTTPException(status_code=400, detail=f"Peer review status: {analysis.status}")
+    try:
+        return json.loads(analysis.result)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Failed to parse peer review data")
+
+
 @router.get("/{paper_id}/analyze")
 async def analyze_paper(paper_id: str, db: AsyncSession = Depends(get_db)):
     """Start analysis pipeline and stream progress via SSE."""

@@ -58,7 +58,8 @@ Include up to 10 most relevant papers. Deduplicate across sources.
 """
         llm_analysis = await generate_json(
             prompt,
-            system_instruction="You are a research librarian expert at finding connections between papers."
+            system_instruction="You are a research librarian expert at finding connections between papers.",
+            agent_name=self.name,
         )
 
         # Merge raw API results with LLM analysis

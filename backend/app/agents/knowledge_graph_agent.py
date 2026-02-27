@@ -68,5 +68,6 @@ IMPORTANT RULES:
 """
         return await generate_json(
             prompt,
-            system_instruction="You are a knowledge graph extraction specialist. Extract precise, meaningful entities and relationships from research papers. Ensure every node ID used in edges exists in the nodes list. Be thorough but avoid redundancy."
+            system_instruction="You are a knowledge graph extraction specialist. Extract precise, meaningful entities and relationships from research papers. Ensure every node ID used in edges exists in the nodes list. Be thorough but avoid redundancy.",
+            agent_name=self.name,
         )

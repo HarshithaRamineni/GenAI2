@@ -1,11 +1,12 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getPaper, analyzeSSE, getKnowledgeGraph, getPlagiarismReport, Paper, AgentProgress, KnowledgeGraphData, PlagiarismReportData } from "@/lib/api";
+import { getPaper, analyzeSSE, getKnowledgeGraph, getPlagiarismReport, getPeerReview, Paper, AgentProgress, KnowledgeGraphData, PlagiarismReportData, PeerReviewData } from "@/lib/api";
 import dynamic from "next/dynamic";
 
 const KnowledgeGraph = dynamic(() => import("@/components/KnowledgeGraph"), { ssr: false });
 const PlagiarismReport = dynamic(() => import("@/components/PlagiarismReport"), { ssr: false });
+const PeerReview = dynamic(() => import("@/components/PeerReview"), { ssr: false });
 
 const AGENT_META: Record<string, { icon: string; label: string }> = {
     rag_indexer: { icon: "📦", label: "RAG Indexer" },
@@ -16,6 +17,7 @@ const AGENT_META: Record<string, { icon: string; label: string }> = {
     implementation_guide: { icon: "🛠️", label: "Implementation Guide" },
     knowledge_graph: { icon: "🕸️", label: "Knowledge Graph" },
     plagiarism_checker: { icon: "🔎", label: "Plagiarism Check" },
+    peer_review: { icon: "📝", label: "Peer Review" },
     pipeline: { icon: "✅", label: "Pipeline" },
 };
 
@@ -27,6 +29,7 @@ const TABS = [
     { key: "implementation_guide", label: "Implementation", icon: "🛠️" },
     { key: "knowledge_graph", label: "Knowledge Graph", icon: "🕸️" },
     { key: "plagiarism_checker", label: "Plagiarism", icon: "🔎" },
+    { key: "peer_review", label: "Peer Review", icon: "📝" },
 ];
 
 export default function PaperPage() {
@@ -43,6 +46,8 @@ export default function PaperPage() {
     const [graphLoading, setGraphLoading] = useState(false);
     const [plagiarismData, setPlagiarismData] = useState<PlagiarismReportData | null>(null);
     const [plagiarismLoading, setPlagiarismLoading] = useState(false);
+    const [peerReviewData, setPeerReviewData] = useState<PeerReviewData | null>(null);
+    const [peerReviewLoading, setPeerReviewLoading] = useState(false);
 
     const fetchPaper = useCallback(async () => {
         try {
@@ -88,6 +93,17 @@ export default function PaperPage() {
                 .finally(() => setPlagiarismLoading(false));
         }
     }, [activeTab, analysisComplete, paperId, plagiarismData, plagiarismLoading]);
+
+    // Fetch peer review when tab is active
+    useEffect(() => {
+        if (activeTab === "peer_review" && analysisComplete && !peerReviewData && !peerReviewLoading) {
+            setPeerReviewLoading(true);
+            getPeerReview(paperId)
+                .then(setPeerReviewData)
+                .catch(() => setPeerReviewData(null))
+                .finally(() => setPeerReviewLoading(false));
+        }
+    }, [activeTab, analysisComplete, paperId, peerReviewData, peerReviewLoading]);
 
     const activeResult = paper?.analyses?.[activeTab]?.result;
 
@@ -210,7 +226,7 @@ export default function PaperPage() {
                                 </div>
                             )}
 
-                            {activeResult && <ResultView agentName={activeTab} result={activeResult as Record<string, unknown>} graphData={graphData} graphLoading={graphLoading} plagiarismData={plagiarismData} plagiarismLoading={plagiarismLoading} />}
+                            {activeResult && <ResultView agentName={activeTab} result={activeResult as Record<string, unknown>} graphData={graphData} graphLoading={graphLoading} plagiarismData={plagiarismData} plagiarismLoading={plagiarismLoading} peerReviewData={peerReviewData} peerReviewLoading={peerReviewLoading} />}
 
                             {!activeResult && analysisComplete && (() => {
                                 const tabAnalysis = paper?.analyses?.[activeTab];
@@ -253,7 +269,7 @@ export default function PaperPage() {
 }
 
 /* ==== Result Views ==== */
-function ResultView({ agentName, result, graphData, graphLoading, plagiarismData, plagiarismLoading }: { agentName: string; result: Record<string, unknown>; graphData?: KnowledgeGraphData | null; graphLoading?: boolean; plagiarismData?: PlagiarismReportData | null; plagiarismLoading?: boolean }) {
+function ResultView({ agentName, result, graphData, graphLoading, plagiarismData, plagiarismLoading, peerReviewData, peerReviewLoading }: { agentName: string; result: Record<string, unknown>; graphData?: KnowledgeGraphData | null; graphLoading?: boolean; plagiarismData?: PlagiarismReportData | null; plagiarismLoading?: boolean; peerReviewData?: PeerReviewData | null; peerReviewLoading?: boolean }) {
     if (agentName === "structured_extractor") return <ExtractionView data={result} />;
     if (agentName === "simplifier") return <SimplifierView data={result} />;
     if (agentName === "related_research") return <RelatedResearchView data={result} />;
@@ -261,6 +277,7 @@ function ResultView({ agentName, result, graphData, graphLoading, plagiarismData
     if (agentName === "implementation_guide") return <ImplementationView data={result} />;
     if (agentName === "knowledge_graph") return <KnowledgeGraphView data={result} graphData={graphData} graphLoading={graphLoading} />;
     if (agentName === "plagiarism_checker") return <PlagiarismCheckView data={result} plagiarismData={plagiarismData} plagiarismLoading={plagiarismLoading} />;
+    if (agentName === "peer_review") return <PeerReviewView data={result} peerReviewData={peerReviewData} peerReviewLoading={peerReviewLoading} />;
     return <GenericView data={result} />;
 }
 
@@ -515,6 +532,32 @@ function PlagiarismCheckView({ data, plagiarismData, plagiarismLoading }: { data
     }
 
     return <PlagiarismReport data={effectiveData as any} />;
+}
+
+function PeerReviewView({ data, peerReviewData, peerReviewLoading }: { data: Record<string, unknown>; peerReviewData?: PeerReviewData | null; peerReviewLoading?: boolean }) {
+    const effectiveData = peerReviewData || (data?.reviewers ? data as unknown as PeerReviewData : null);
+
+    if (peerReviewLoading) {
+        return (
+            <div className="glass-card-static p-12 text-center">
+                <div className="text-4xl mb-4 animate-pulse-slow">📝</div>
+                <p className="text-lg text-white mb-2">Simulating Peer Review...</p>
+                <p className="text-sm text-slate-500">3 AI reviewers are evaluating the paper</p>
+            </div>
+        );
+    }
+
+    if (!effectiveData || !effectiveData.reviewers) {
+        return (
+            <div className="glass-card-static p-12 text-center">
+                <p className="text-4xl mb-4">📝</p>
+                <p className="text-lg text-white mb-2">AI Peer Review</p>
+                <p className="text-sm text-slate-500">Review not available. Try re-analyzing the paper.</p>
+            </div>
+        );
+    }
+
+    return <PeerReview reviewers={effectiveData.reviewers} meta_review={effectiveData.meta_review} conference={effectiveData.conference} />;
 }
 
 function RenderValue({ value }: { value: unknown }) {

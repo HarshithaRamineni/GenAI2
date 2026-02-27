@@ -34,14 +34,21 @@ const FEATURES = [
         tag: "AI Chat",
     },
     {
-        icon: "�",
+        icon: "🔎",
         name: "AI Plagiarism Checker",
         desc: "Cross-reference against published research to verify originality with detailed reports",
         color: "from-red-500 to-orange-600",
         tag: "NEW",
     },
     {
-        icon: "�🕸️",
+        icon: "📝",
+        name: "AI Peer Review Simulator",
+        desc: "Simulates a full conference review with 3 expert reviewers, scores, and accept/reject decision",
+        color: "from-teal-500 to-cyan-600",
+        tag: "NEW",
+    },
+    {
+        icon: "🕸️",
         name: "Interactive Knowledge Graph",
         desc: "Visualize entities, methods, datasets & their relationships as a force-directed graph",
         color: "from-purple-500 to-fuchsia-600",
@@ -71,6 +78,7 @@ const AGENTS = [
     { icon: "🛠️", name: "Implementation Guide", desc: "Tech stack, architecture & roadmap" },
     { icon: "🕸️", name: "Knowledge Graph", desc: "Entity & relationship extraction into interactive graph" },
     { icon: "🔎", name: "Plagiarism Checker", desc: "Originality verification against published research" },
+    { icon: "📝", name: "Peer Review", desc: "Simulated conference peer review with 3 expert reviewers" },
 ];
 
 const NODE_TYPE_COLORS: Record<string, string> = {
@@ -196,14 +204,14 @@ export default function HomePage() {
                         <span className="text-white">in Minutes</span>
                     </h1>
                     <p className="text-lg text-slate-400 max-w-2xl mx-auto mb-12 leading-relaxed">
-                        Upload a paper and let <span className="text-indigo-300 font-semibold">7 specialized AI agents</span> extract
+                        Upload a paper and let <span className="text-indigo-300 font-semibold">8 specialized AI agents</span> extract
                         insights, find gaps, discover related work, check originality, and generate implementation guides — all automatically.
                     </p>
 
                     {/* Stats Row */}
                     <div className="flex items-center justify-center gap-8 mb-12 animate-slide-up-delay-1">
                         <div className="stat-card">
-                            <div className="stat-value glow-text">7</div>
+                            <div className="stat-value glow-text">8</div>
                             <div className="stat-label">AI Agents</div>
                         </div>
                         <div className="w-px h-10 bg-white/10" />
@@ -405,7 +413,7 @@ export default function HomePage() {
                 <section className="mb-16">
                     <div className="text-center mb-10">
                         <h2 className="text-3xl font-bold text-white mb-3">
-                            <span className="glow-text">7 Specialized Agents</span>
+                            <span className="glow-text">8 Specialized Agents</span>
                         </h2>
                         <p className="text-slate-400 text-sm">Each paper goes through a powerful multi-agent pipeline</p>
                     </div>

@@ -43,5 +43,6 @@ Extract and return a JSON object with these exact keys:
 """
         return await generate_json(
             prompt,
-            system_instruction="You are an expert research paper analyst. Extract information accurately and comprehensively. If information is not found, use 'Not specified' as the value."
+            system_instruction="You are an expert research paper analyst. Extract information accurately and comprehensively. If information is not found, use 'Not specified' as the value.",
+            agent_name=self.name,
         )

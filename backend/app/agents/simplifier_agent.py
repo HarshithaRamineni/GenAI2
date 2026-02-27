@@ -46,5 +46,6 @@ Return a JSON object with these exact keys:
 """
         return await generate_json(
             prompt,
-            system_instruction="You are an expert science communicator who can explain complex research at any level. Be accurate, engaging, and clear."
+            system_instruction="You are an expert science communicator who can explain complex research at any level. Be accurate, engaging, and clear.",
+            agent_name=self.name,
         )

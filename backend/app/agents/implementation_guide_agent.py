@@ -73,5 +73,6 @@ Return a JSON object:
 """
         return await generate_json(
             prompt,
-            system_instruction="You are a senior software architect who specializes in turning research papers into practical implementations. Be specific, actionable, and realistic."
+            system_instruction="You are a senior software architect who specializes in turning research papers into practical implementations. Be specific, actionable, and realistic.",
+            agent_name=self.name,
         )

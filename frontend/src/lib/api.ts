@@ -284,3 +284,41 @@ export async function getPlagiarismReport(
     if (!res.ok) throw new Error("Plagiarism report not available");
     return res.json();
 }
+
+export interface PeerReviewData {
+    conference: string;
+    paper_title: string;
+    reviewers: Array<{
+        reviewer_id: string;
+        expertise: string;
+        confidence: number;
+        overall_score: number;
+        scores: Record<string, number>;
+        summary: string;
+        strengths: string[];
+        weaknesses: string[];
+        questions: string[];
+        detailed_comments: string;
+        recommendation: string;
+    }>;
+    meta_review: {
+        decision: string;
+        average_score: number;
+        consensus_summary: string;
+        key_strengths: string[];
+        key_concerns: string[];
+        recommendation_to_authors: string;
+        verdict_reasoning: string;
+    };
+}
+
+export async function getPeerReview(
+    paperId: string
+): Promise<PeerReviewData> {
+    const res = await fetch(
+        `${API_BASE}/api/papers/${paperId}/peer-review`,
+        { cache: "no-store" }
+    );
+    if (!res.ok) throw new Error("Peer review not available");
+    return res.json();
+}

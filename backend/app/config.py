@@ -7,8 +7,9 @@ import os
 
 class Settings(BaseSettings):
     cerebras_api_key: str = ""
+    cerebras_api_key_secondary: str = ""
     database_url: str = "sqlite+aiosqlite:///./research.db"
-    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001"
     upload_dir: str = "./uploads"
     vector_store_dir: str = "./vector_stores"
 

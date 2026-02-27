@@ -70,5 +70,6 @@ Return a JSON object:
 """
         return await generate_json(
             prompt,
-            system_instruction="You are a senior researcher and peer reviewer. Be thorough, constructive, and specific in identifying gaps and suggesting improvements."
+            system_instruction="You are a senior researcher and peer reviewer. Be thorough, constructive, and specific in identifying gaps and suggesting improvements.",
+            agent_name=self.name,
         )

@@ -41,7 +41,8 @@ Return a JSON object:
 """
         claims_result = await generate_json(
             claims_prompt,
-            system_instruction="You are an academic integrity expert. Extract precise, verifiable claims from research papers."
+            system_instruction="You are an academic integrity expert. Extract precise, verifiable claims from research papers.",
+            agent_name=self.name,
         )
         claims = claims_result.get("claims", [])
         if not claims:
@@ -124,7 +125,8 @@ IMPORTANT RULES:
 """
         report = await generate_json(
             analysis_prompt,
-            system_instruction="You are a fair, thorough academic plagiarism detector. Distinguish between legitimate building-on-prior-work and actual problematic overlap. Be accurate with similarity scores."
+            system_instruction="You are a fair, thorough academic plagiarism detector. Distinguish between legitimate building-on-prior-work and actual problematic overlap. Be accurate with similarity scores.",
+            agent_name=self.name,
         )
 
         # Attach raw search data
