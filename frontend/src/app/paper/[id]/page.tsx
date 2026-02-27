@@ -54,6 +54,7 @@ export default function PaperPage() {
 
     const startAnalysis = () => {
         setAnalyzing(true);
+        setAnalysisComplete(false);
         setAgentStatus({});
         analyzeSSE(
             paperId,
@@ -117,13 +118,13 @@ export default function PaperPage() {
                                     </span>
                                 </div>
                             </div>
-                            {!analysisComplete && !analyzing && (
+                            {!analyzing && (
                                 <button
                                     id="analyze-btn"
                                     className="btn-primary"
                                     onClick={startAnalysis}
                                 >
-                                    🚀 Analyze Paper
+                                    {analysisComplete ? "🔄 Re-analyze" : "🚀 Analyze Paper"}
                                 </button>
                             )}
                         </div>
@@ -239,6 +240,50 @@ export default function PaperPage() {
                                 result={activeResult as Record<string, unknown>}
                             />
                         )}
+
+                        {/* Show per-tab status when no result is available but analysis is done */}
+                        {!activeResult && analysisComplete && (() => {
+                            const tabAnalysis = paper?.analyses?.[activeTab];
+                            if (!tabAnalysis) {
+                                return (
+                                    <div className="glass-card p-12 text-center">
+                                        <p className="text-4xl mb-4">📭</p>
+                                        <p className="text-lg text-slate-700 mb-2">No data available</p>
+                                        <p className="text-sm text-slate-400">This agent didn&apos;t produce results. Try re-analyzing the paper.</p>
+                                    </div>
+                                );
+                            }
+                            if (tabAnalysis.status === "running") {
+                                return (
+                                    <div className="glass-card p-12 text-center">
+                                        <div className="text-4xl mb-4 animate-pulse-slow">⏳</div>
+                                        <p className="text-lg text-slate-700 mb-2">Still processing...</p>
+                                        <p className="text-sm text-slate-400">This agent is still running. Please wait or try re-analyzing.</p>
+                                    </div>
+                                );
+                            }
+                            if (tabAnalysis.status === "error") {
+                                return (
+                                    <div className="glass-card p-12 text-center">
+                                        <p className="text-4xl mb-4">❌</p>
+                                        <p className="text-lg text-slate-700 mb-2">Agent Error</p>
+                                        {tabAnalysis.error && (
+                                            <p className="text-sm text-red-500 mb-3 max-w-lg mx-auto">
+                                                {tabAnalysis.error.length > 300 ? tabAnalysis.error.substring(0, 300) + "..." : tabAnalysis.error}
+                                            </p>
+                                        )}
+                                        <p className="text-sm text-slate-400">Try re-analyzing the paper to fix this.</p>
+                                    </div>
+                                );
+                            }
+                            return (
+                                <div className="glass-card p-12 text-center">
+                                    <p className="text-4xl mb-4">📭</p>
+                                    <p className="text-lg text-slate-700 mb-2">No results</p>
+                                    <p className="text-sm text-slate-400">This agent completed but returned no data.</p>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </section>
             </div>

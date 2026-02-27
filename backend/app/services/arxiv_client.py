@@ -4,7 +4,7 @@ import httpx
 import re
 import xml.etree.ElementTree as ET
 
-ARXIV_API_BASE = "http://export.arxiv.org/api/query"
+ARXIV_API_BASE = "https://export.arxiv.org/api/query"
 ARXIV_PDF_BASE = "https://arxiv.org/pdf/"
 
 ATOM_NS = "{http://www.w3.org/2005/Atom}"
@@ -26,7 +26,7 @@ def extract_arxiv_id(input_str: str) -> str | None:
 
 async def fetch_paper_metadata(arxiv_id: str) -> dict:
     """Fetch paper metadata from arXiv Atom feed."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         resp = await client.get(ARXIV_API_BASE, params={"id_list": arxiv_id})
         resp.raise_for_status()
 
@@ -61,7 +61,7 @@ async def download_pdf(arxiv_id: str) -> bytes:
 
 async def search_papers(query: str, max_results: int = 10) -> list[dict]:
     """Search arXiv for papers matching query."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         resp = await client.get(
             ARXIV_API_BASE,
             params={"search_query": f"all:{query}", "max_results": max_results, "sortBy": "relevance"},

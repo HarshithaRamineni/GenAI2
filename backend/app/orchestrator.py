@@ -4,12 +4,15 @@ import asyncio
 import json
 from typing import AsyncGenerator, Callable, Awaitable
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.agents.extractor_agent import ExtractorAgent
 from app.agents.simplifier_agent import SimplifierAgent
 from app.agents.related_research_agent import RelatedResearchAgent
 from app.agents.gap_detector_agent import GapDetectorAgent
 from app.agents.implementation_guide_agent import ImplementationGuideAgent
 from app.rag.retriever import build_paper_index
+from app.models import Paper, PaperStatus
+from app.database import async_session
 
 
 # Agent instances
@@ -63,31 +66,54 @@ async def run_pipeline(
     # Execute pipeline stages
     for stage_name, agent_names, deps in PIPELINE:
         # Verify dependencies are met
-        for dep in deps:
-            if dep not in context:
-                await notify(stage_name, "error", f"Missing dependency: {dep}")
-                continue
+        missing_deps = [dep for dep in deps if dep not in context]
+        if missing_deps:
+            for agent_name in agent_names:
+                await notify(agent_name, "error", f"Missing dependency: {', '.join(missing_deps)}")
+            continue
 
         if len(agent_names) == 1:
             # Sequential execution
             agent_name = agent_names[0]
             agent = AGENTS[agent_name]
             await notify(agent_name, "running", f"Executing {agent.description}...")
-            result = await agent.run(paper_id, paper_text, context, db)
-            context[agent_name] = result
-            status = "error" if "error" in result else "completed"
-            await notify(agent_name, status, "")
+            try:
+                result = await agent.run(paper_id, paper_text, context, db)
+                context[agent_name] = result
+                status = "error" if "error" in result else "completed"
+                await notify(agent_name, status, result.get("error", ""))
+            except Exception as e:
+                context[agent_name] = {"error": str(e)}
+                await notify(agent_name, "error", str(e))
         else:
-            # Parallel execution
+            # Parallel execution — each agent gets its own DB session
             async def run_agent(name: str):
                 agent = AGENTS[name]
                 await notify(name, "running", f"Executing {agent.description}...")
-                result = await agent.run(paper_id, paper_text, context, db)
-                context[name] = result
-                status = "error" if "error" in result else "completed"
-                await notify(name, status, "")
+                try:
+                    async with async_session() as agent_db:
+                        result = await agent.run(paper_id, paper_text, context, agent_db)
+                        await agent_db.commit()
+                    context[name] = result
+                    status = "error" if "error" in result else "completed"
+                    await notify(name, status, result.get("error", ""))
+                except Exception as e:
+                    context[name] = {"error": str(e)}
+                    await notify(name, "error", str(e))
 
             await asyncio.gather(*[run_agent(name) for name in agent_names])
+
+    # Update paper status after pipeline
+    try:
+        stmt = select(Paper).where(Paper.id == paper_id)
+        result = await db.execute(stmt)
+        paper = result.scalar_one_or_none()
+        if paper:
+            has_errors = any("error" in v for v in context.values() if isinstance(v, dict))
+            paper.status = PaperStatus.ERROR if has_errors else PaperStatus.COMPLETED
+            await db.commit()
+    except Exception:
+        pass  # Don't fail the pipeline over a status update
 
     return context
 

@@ -7,7 +7,7 @@ S2_API_BASE = "https://api.semanticscholar.org/graph/v1"
 
 async def search_related(title: str, limit: int = 10) -> list[dict]:
     """Search Semantic Scholar for papers related to the given title."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
         try:
             resp = await client.get(
                 f"{S2_API_BASE}/paper/search",

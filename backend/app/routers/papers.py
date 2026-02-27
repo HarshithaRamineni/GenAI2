@@ -1,11 +1,12 @@
 """API routes for paper upload, listing, analysis, and results."""
 
 import json
+from collections import defaultdict
 import os
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from app.database import get_db
 from app.models import Paper, Analysis, PaperStatus, SourceType
 from app.services.pdf_parser import extract_text_from_bytes
@@ -107,12 +108,17 @@ async def get_paper(paper_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Paper not found")
 
     # Fetch analyses
-    analysis_stmt = select(Analysis).where(Analysis.paper_id == paper_id)
+    analysis_stmt = select(Analysis).where(Analysis.paper_id == paper_id).order_by(Analysis.created_at.desc())
     analysis_result = await db.execute(analysis_stmt)
     analyses = analysis_result.scalars().all()
 
+    # Deduplicate: keep only the latest analysis per agent_name
     analysis_map = {}
+    seen_agents = set()
     for a in analyses:
+        if a.agent_name in seen_agents:
+            continue
+        seen_agents.add(a.agent_name)
         try:
             analysis_map[a.agent_name] = {
                 "status": a.status,
@@ -147,6 +153,9 @@ async def analyze_paper(paper_id: str, db: AsyncSession = Depends(get_db)):
 
     if not paper.raw_text:
         raise HTTPException(status_code=400, detail="Paper has no text to analyze")
+
+    # Delete old analyses to start fresh
+    await db.execute(delete(Analysis).where(Analysis.paper_id == paper_id))
 
     # Update paper status
     paper.status = PaperStatus.PROCESSING
