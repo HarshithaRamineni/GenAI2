@@ -17,7 +17,7 @@ _primary_client = None   # gpt-oss-120b
 _support_client = None   # qwen3-32b
 
 PRIMARY_MODEL = "openai/gpt-oss-120b"
-SUPPORT_MODEL = "qwen/qwen3-32b"
+SUPPORT_MODEL = "openai/gpt-oss-20b"
 
 # Agents routed to the support model (lighter/faster tasks)
 SUPPORT_MODEL_AGENTS = {

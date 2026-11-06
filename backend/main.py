@@ -18,9 +18,9 @@ async def lifespan(app: FastAPI):
     os.makedirs(settings.vector_store_dir, exist_ok=True)
     # Initialize database
     await init_db()
-    print("✅ ResearchPilot backend started")
+    print("[SUCCESS] ResearchPilot backend started")
     yield
-    print("👋 ResearchPilot backend shutting down")
+    print("[INFO] ResearchPilot backend shutting down")
 
 
 app = FastAPI(
