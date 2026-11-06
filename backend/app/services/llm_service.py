@@ -1,17 +1,23 @@
-"""Dual-model Cerebras LLM service — primary (gpt-oss-120b) + support (qwen-3-235b)."""
+"""Dual-model LLM service on Groq — primary (gpt-oss-120b) + support (qwen3-32b).
 
-from cerebras.cloud.sdk import Cerebras
+Groq exposes an OpenAI-compatible API, so the official `openai` client is used
+with Groq's base URL.
+"""
+
+from openai import OpenAI
 from app.config import get_settings
 import json
 import re
 import asyncio
 
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
 # Two separate clients for dual-model architecture
 _primary_client = None   # gpt-oss-120b
-_support_client = None   # qwen-3-235b
+_support_client = None   # qwen3-32b
 
-PRIMARY_MODEL = "gpt-oss-120b"
-SUPPORT_MODEL = "qwen-3-235b-a22b-instruct-2507"
+PRIMARY_MODEL = "openai/gpt-oss-120b"
+SUPPORT_MODEL = "qwen/qwen3-32b"
 
 # Agents routed to the support model (lighter/faster tasks)
 SUPPORT_MODEL_AGENTS = {
@@ -22,20 +28,22 @@ SUPPORT_MODEL_AGENTS = {
 }
 
 
+def _make_client():
+    settings = get_settings()
+    return OpenAI(api_key=settings.groq_api_key, base_url=GROQ_BASE_URL)
+
+
 def _get_primary_client():
     global _primary_client
     if _primary_client is None:
-        settings = get_settings()
-        _primary_client = Cerebras(api_key=settings.cerebras_api_key)
+        _primary_client = _make_client()
     return _primary_client
 
 
 def _get_support_client():
     global _support_client
     if _support_client is None:
-        settings = get_settings()
-        key = settings.cerebras_api_key_secondary or settings.cerebras_api_key
-        _support_client = Cerebras(api_key=key)
+        _support_client = _make_client()
     return _support_client
 
 
@@ -94,11 +102,11 @@ async def generate(
                 return await asyncio.to_thread(_fallback)
             except Exception:
                 pass
-        if "API key" in error_msg or "auth" in error_msg.lower():
+        if "401" in error_msg or "invalid_api_key" in error_msg.lower() or "api key" in error_msg.lower():
             raise RuntimeError(
-                "Invalid Cerebras API key. Check CEREBRAS_API_KEY in .env"
+                "Invalid Groq API key. Check GROQ_API_KEY in .env"
             ) from e
-        raise RuntimeError(f"Cerebras API error: {error_msg}") from e
+        raise RuntimeError(f"Groq API error: {error_msg}") from e
 
 
 async def generate_json(
@@ -106,7 +114,7 @@ async def generate_json(
     system_instruction: str = "",
     agent_name: str = "",
 ) -> dict:
-    """Generate and parse JSON from Cerebras response."""
+    """Generate and parse JSON from the LLM response."""
     system_instruction += "\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no code fences, no extra text."
     text = await generate(prompt, system_instruction, agent_name=agent_name)
     text = text.strip()
